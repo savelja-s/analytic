@@ -27,10 +27,10 @@ class Analytic:
     @classmethod
     def run(cls):
         print(get_weather('Lviv'))
-        # cls.__exchange_rate(FinanceBank.name)
-        # cls.__exchange_rate(PrivatbankBank.name)
-        # cls.__exchange_rate(NationalBank.name)
-        # cls.__exchange_rate(MonobankBank.name)
+        cls.__exchange_rate(FinanceBank.name)
+        cls.__exchange_rate(PrivatbankBank.name)
+        cls.__exchange_rate(NationalBank.name)
+        cls.__exchange_rate(MonobankBank.name)
         print('Good by')
 
 
