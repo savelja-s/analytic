@@ -6,7 +6,7 @@ __pycache__/
 # Environments
 venv/
 
-*.[json]
 store/*
 database.db
 .idea/
+config.json
