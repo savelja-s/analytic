@@ -40,7 +40,7 @@ class Helper:
 
     @staticmethod
     def get_addition_file_path(name: str) -> str:
-        return f"{os.getcwd()}/store/bank/{name}_{time.strftime('%Y-%m-%d')}.json"
+        return f"{os.getcwd()}/store/bank/{name}.json"
 
     @staticmethod
     def get_bank_store_dir() -> str:
@@ -58,19 +58,19 @@ class Helper:
             json.dump(data, file)
 
     @staticmethod
-    def write_addition_file(file_name: str, data):
-        with open(Helper.get_addition_file_path(file_name), 'w+', encoding='utf-8') as file:
-            json.dump(data, file)
-
-    @staticmethod
     def save_bank_units(file_name: str, data):
-        with open(Helper.get_addition_file_path(file_name), 'w+', encoding='utf-8') as file:
-            bank_units = json.load(file)
-            for item in data:
-                if item['hash'] not in bank_units:
-                    bank_units[item['hash']] = item
+        file_path = Helper.get_addition_file_path(file_name)
+        if not os.path.exists(file_path):
+            bank_units = data
+        else:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                bank_units = json.load(file)
+                for hash_id in data:
+                    if hash_id in bank_units.keys():
+                        bank_units[hash_id] = bank_units[hash_id]
 
-            json.dump(data, file)
+        with open(file_path, 'w+', encoding='utf-8') as file:
+            json.dump(bank_units, file)
 
     @staticmethod
     def get_bank_store(bank_name: str, interval_prefix: int) -> dict:
@@ -83,19 +83,21 @@ class Helper:
 
     @staticmethod
     def http_request(url: str, method='get', data: dict = None):
-
-        try:
-            get_request = {
-                'get': requests.get(url=url, params=data),
-                'post': requests.post(url=url, data=data),
-            }
-        except ConnectionResetError:
-            print('BADDDDD')
-            exit()
-        response_inst = get_request.get(method, None)
-
+        response_inst = None
+        attempts = 5
+        while attempts > 0:
+            try:
+                if method == 'get':
+                    response_inst = requests.get(url=url, params=data)
+                if method == 'post':
+                    response_inst = requests.post(url=url, data=data)
+                break
+            except requests.exceptions.ConnectionError:
+                print('BAD REQUEST')
+                attempts -= 1
         if response_inst is None:
             raise ValueError(f'Undefined method: {method}')
+        response_inst.encoding = 'UTF-8'
         try:
             response = response_inst.json()
         except JSONDecodeError:

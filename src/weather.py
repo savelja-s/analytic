@@ -1,13 +1,13 @@
-import requests, json
+import requests
 
 api = ('http://api.openweathermap.org/data/2.5/weather?q=%s&appid=1947089d8ce1bcc3c318ca30b2aba583',)
 
 
-def get_weather(city) -> json:
+def get_weather(city) -> list:
     response = requests.get(api[0] % city)
     city_weather = response.json()
     if city_weather["cod"] == "404":
-        weather_ui = ('404',)
+        weather_ui = ['404', ]
         return weather_ui
     temp = city_weather["main"]["temp"]
     weather_ui = list()

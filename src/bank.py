@@ -9,6 +9,7 @@ CURRENCIES = ['USD', 'EUR']
 
 class IBankApi(abc.ABC):
     interval: int = 10
+    name: str
 
     def __init__(self, name: str):
         self.name = name
@@ -16,15 +17,18 @@ class IBankApi(abc.ABC):
     def __str__(self):
         return self.name
 
+    @classmethod
     @abc.abstractmethod
-    def _get_bank_api(self) -> dict:
+    def _get_bank_api(cls) -> dict:
         pass
 
-    def get_exchange_rate(self) -> dict:
-        data = Helper.get_bank_store(self.name, self.interval)
+    @classmethod
+    def get_exchange_rate(cls) -> dict:
+        data = Helper.get_bank_store(cls.name, cls.interval)
         if len(data) == 0:
-            data = self._get_bank_api()
-            Helper.set_bank_store(self.name, self.interval, data)
+            data = cls._get_bank_api()
+            print('save into store')
+            Helper.set_bank_store(cls.name, cls.interval, data)
         return data
 
 
@@ -76,13 +80,14 @@ class PrivatbankBank(IBankApi):
     def __init__(self):
         super().__init__(self.name)
 
-    def _get_bank_api(self) -> dict:
+    @classmethod
+    def _get_bank_api(cls) -> dict:
         data = {currency['ccy']: {'buy': currency['buy'], 'sale': currency['sale']} for currency in
-                Helper.http_request(self.api_url) if
+                Helper.http_request(cls.api_url) if
                 currency['ccy'] in CURRENCIES}
         print('_get_bank_api', data)
         for currency in data:
-            exchange_rate = ExchangeRate(str(self), currency, data[currency]['buy'], data[currency]['sale'])
+            exchange_rate = ExchangeRate(str(cls), currency, data[currency]['buy'], data[currency]['sale'])
             Helper.db().insert(exchange_rate)
         return data
 
@@ -94,14 +99,15 @@ class NationalBank(IBankApi):
     def __init__(self):
         super().__init__(self.name)
 
-    def _get_bank_api(self) -> dict:
+    @classmethod
+    def _get_bank_api(cls) -> dict:
         data = {}
         for code in CURRENCIES:
-            response = Helper.http_request(self.api_url.format(code))[0]
+            response = Helper.http_request(cls.api_url.format(code))[0]
             data[code] = {'buy': response['rate'], 'sale': None, 'date_expired': response['exchangedate']}
         print('_get_bank_api', data)
         for currency in data:
-            exchange_rate = ExchangeRate(str(self),
+            exchange_rate = ExchangeRate(str(cls),
                                          currency,
                                          data[currency]['buy'],
                                          data[currency]['sale'],
@@ -121,19 +127,20 @@ class MonobankBank(IBankApi):
     def __init__(self):
         super().__init__(self.name)
 
-    def _get_bank_api(self) -> dict:
+    @classmethod
+    def _get_bank_api(cls) -> dict:
         data = {}
-        response = Helper.http_request(self.api_url)
+        response = Helper.http_request(cls.api_url)
         for currency in response:
-            if currency['currencyCodeA'] in self.code_currencies.keys() and currency['currencyCodeB'] == self.code_UKR:
-                code = self.code_currencies[currency['currencyCodeA']]['code']
+            if currency['currencyCodeA'] in cls.code_currencies.keys() and currency['currencyCodeB'] == cls.code_UKR:
+                code = cls.code_currencies[currency['currencyCodeA']]['code']
                 data[code] = {'buy': currency['rateBuy'],
                               'sale': currency['rateSell'],
                               'date_expired': time.strftime('%Y-%m-%d_%H:%M:%S', time.localtime(currency['date']))
                               }
         print('_get_bank_api', data)
         for currency in data:
-            exchange_rate = ExchangeRate(str(self),
+            exchange_rate = ExchangeRate(str(cls),
                                          currency,
                                          data[currency]['buy'],
                                          data[currency]['sale'],
@@ -151,15 +158,16 @@ class FinanceBank(IBankApi):
     def __init__(self):
         super().__init__(self.name)
 
-    def _get_bank_api(self) -> dict:
-        response = Helper.http_request(self.api_url)
+    @classmethod
+    def _get_bank_api(cls) -> dict:
+        response = Helper.http_request(cls.api_url)
         data = {}
         bank = {}
         unit_bank_fs = {}
         for bank_unit in response['organizations']:
             for currency in bank_unit['currencies']:
                 if currency in CURRENCIES:
-                    exchange_rate = ExchangeRate(f"<{self}> {bank_unit['title']}",
+                    exchange_rate = ExchangeRate(f"<{cls}> {bank_unit['title']}",
                                                  currency,
                                                  bank_unit['currencies'][currency]['bid'],
                                                  bank_unit['currencies'][currency]['ask'],
@@ -184,5 +192,6 @@ class FinanceBank(IBankApi):
             if Helper.db().find_by(UnitBankFinance.tb_name(), unit_bank_f.hash, 'hash') is None:
                 Helper.db().insert(unit_bank_f)
             unit_bank_fs[unit_bank_f.__dict__['hash']] = unit_bank_f.__dict__
-        Helper.write_addition_file('banks_and_kantors', unit_bank_fs)
+
+        Helper.save_bank_units('banks_and_kantors', unit_bank_fs)
         return data
